@@ -49,6 +49,7 @@ const main = async () => {
             commonDirsPaths.push(pathToCommonFolder);
         }
 
+
         const elements = await fs.readdir(pathToBaseFolder);
 
         for (let i = 0; i < elements.length; ++i) {
