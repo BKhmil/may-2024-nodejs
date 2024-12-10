@@ -1,86 +1,105 @@
-// ДЗ:
-//     Створити папку "baseFolder". В ній створити 5 папок, в кожній з яких створити по 5 файлів з розширенням txt.
-//     Вивести в консоль шляхи до кожного файлу чи папки, також вивести поряд інформацію про те, чи є це файл чи папка.
-const fs = require('node:fs/promises');
-const path = require('node:path');
+const express = require('express')
+const dotenv = require('dotenv')
+dotenv.config()
 
-const FoldersNames = {
-    baseFolderName: 'baseFolder',
-    commonFolderName: 'common_folder'
-}
+const {readAllFromDB, writeAllToDB} = require("./helper.js");
 
-const FilesNames = {
-    commonFileName: 'common-file'
-}
+const app = express();
 
-const Exts = {
-    txt: '.txt'
-}
+app.use(express.json());
+app.use(express.urlencoded({extended: true}));
 
-const Separators = {
-    folder: '#############################################################################################',
-    file: '----------------------------------------------------------------------------------------------'
-};
-
-const LIMIT = 5;
-
-const commonDirsPaths = [];
-const commonFilesPaths = [];
-
-const main = async () => {
+// ~~~~~~~~~~ TASK ~~~~~~~~~
+// create-users -> users (POST)
+// get-list-users -> users (GET)
+// get-user-by-id -> users/:id (GET)
+// update-user -> users/:id (PUT)
+// delete-user -> users/:id (DELETE)
+app.get('/users', async (req, res) => {
     try {
-        const pathToBaseFolder = path.join(__dirname, FoldersNames.baseFolderName);
-
-        await fs.mkdir(pathToBaseFolder);
-
-        for (let i = 0; i < LIMIT; ++i) {
-            const pathToCommonFolder = path.join(pathToBaseFolder, FoldersNames.commonFolderName + (i + 1));
-
-            await fs.mkdir(pathToCommonFolder);
-
-            for (let j = 0; j < LIMIT; ++j) {
-                const pathToCommonFile = path.join(pathToCommonFolder, FilesNames.commonFileName + (j + 1) + Exts.txt);
-
-                await fs.writeFile(pathToCommonFile, i.toString());
-
-                commonFilesPaths.push(pathToCommonFile);
-            }
-
-            commonDirsPaths.push(pathToCommonFolder);
-        }
-
-
-        const elements = await fs.readdir(pathToBaseFolder);
-
-        for (let i = 0; i < elements.length; ++i) {
-            console.log('\n' + Separators.folder);
-
-            const dirCounter = elements[i].split('folder')[1];
-            console.log('Common folder #' + dirCounter + ':');
-
-            console.log('Path => ' + commonDirsPaths[i]);
-
-            console.log('isDirectory => ' + (await fs.stat(commonDirsPaths[i])).isDirectory());
-            console.log('isFile => ' + (await fs.stat(commonDirsPaths[i])).isFile());
-
-            const items = await fs.readdir(commonDirsPaths[i]);
-
-            for (let j = 0; j < items.length; ++j) {
-                console.log(Separators.file);
-                console.log('\tCommon file #' + (items[j].split('file')[1][0]) + ' from folder #' + dirCounter + ':');
-
-                console.log('\tPath => ' + commonFilesPaths[j]);
-                console.log('\tisDirectory => ' + (await fs.stat(commonFilesPaths[j])).isDirectory());
-                console.log('\tisFile => ' + (await fs.stat(commonFilesPaths[j])).isFile());
-                console.log(Separators.file);
-            }
-
-            console.log(Separators.folder);
-        }
+        const users = await readAllFromDB();
+        res.json(users);
     } catch (e) {
-        console.error('1000-7');
+        console.error(e.message);
+    }
+});
+
+app.post('/users', async (req, res) => {
+    try {
+        const users = await readAllFromDB();
+
+        const newUser = {
+            id: users.length + 1,
+            name: req.body.name,
+            email: req.body.email,
+            password: req.body.password
+        }
+
+        users.push(newUser);
+
+        await writeAllToDB(users);
+
+        res.status(201).json(users);
+    } catch (e) {
+        console.error(e.message);
+    }
+
+});
+
+app.get('/users/:userId', async (req, res) => {
+    try {
+        const users = await readAllFromDB();
+
+        const user = users.find(user => user.id === Number(req.params.userId));
+
+        user ? res.json(user) : res.status(404).json({ message: "No users with current id or empty db" });
+    } catch (e) {
+        console.error(e);
+    }
+});
+
+app.put('/users/:userId', async (req, res) => {
+    try {
+        const userId = Number(req.params.userId);
+        const users = await readAllFromDB();
+
+        const userIndex = users.findIndex(user => user.id === userId);
+
+        if (userIndex === -1) {
+            res.status(404).json({ message: "No users with current id or empty db" });
+        } else {
+            users[userIndex] = {...req.body, id: userId}
+
+            await writeAllToDB(users);
+
+            res.json(users[userIndex]);
+        }
+    } catch(e) {
         console.log(e);
     }
-}
+});
 
-void main();
+app.delete('/users/:userId', async (req, res) => {
+    try {
+        const users = await readAllFromDB();
+
+        const userIndex = users.findIndex(user => user.id === Number(req.params.userId));
+
+        if (userIndex === -1) {
+            res.status(404).json({ message: "No users with current id or empty db" });
+        } else {
+            users.splice(userIndex, 1);
+
+            await writeAllToDB(users);
+
+            res.sendStatus(204);
+        }
+    } catch(e) {
+        console.error(e);
+    }
+});
+
+const port = process.env.PORT;
+app.listen(port, () => {
+    console.log(`Server has been started on port ${port}`);
+})

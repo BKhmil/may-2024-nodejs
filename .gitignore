@@ -1,2 +1,4 @@
 .idea
 may-2024-nodejs.iml
+.env
+node_modules
