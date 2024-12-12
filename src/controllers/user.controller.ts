@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 
-import { readAllFromDB, writeAllToDB } from "../helper";
+import { userService } from "../services/user.service";
 
 class UserController {
   public async getList(
@@ -9,7 +9,8 @@ class UserController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const users = await readAllFromDB();
+      const users = await userService.getList();
+
       res.json(users);
     } catch (err) {
       next(err);
@@ -22,18 +23,7 @@ class UserController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const users = await readAllFromDB();
-
-      const newUser = {
-        id: users[users.length - 1].id ? users[users.length - 1].id + 1 : 1,
-        name: req.body.name,
-        email: req.body.email,
-        password: req.body.password,
-      };
-
-      users.push(newUser);
-
-      await writeAllToDB(users);
+      const users = await userService.create(req.body);
 
       res.status(201).json(users);
     } catch (err) {
@@ -47,17 +37,11 @@ class UserController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const users = await readAllFromDB();
+      const userId = req.params.userId as string;
 
-      const user = users.find((user) => user.id === Number(req.params.userId));
+      const user = await userService.getById(Number(userId));
 
-      if (user) {
-        res.json(user);
-      } else {
-        res
-          .status(404)
-          .json({ message: "No users with current id or empty db" });
-      }
+      res.json(user);
     } catch (err) {
       next(err);
     }
@@ -69,22 +53,11 @@ class UserController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const userId = Number(req.params.userId);
-      const users = await readAllFromDB();
+      const userId = req.params.userId as string;
 
-      const userIndex = users.findIndex((user) => user.id === userId);
+      const user = await userService.updateById(req.body, Number(userId));
 
-      if (userIndex === -1) {
-        res
-          .status(404)
-          .json({ message: "No users with current id or empty db" });
-      } else {
-        users[userIndex] = { ...req.body, id: userId };
-
-        await writeAllToDB(users);
-
-        res.json(users[userIndex]);
-      }
+      res.json(user);
     } catch (err) {
       next(err);
     }
@@ -96,23 +69,11 @@ class UserController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const users = await readAllFromDB();
+      const userId = req.params.userId as string;
 
-      const userIndex = users.findIndex(
-        (user) => user.id === Number(req.params.userId),
-      );
+      await userService.deleteById(Number(userId));
 
-      if (userIndex === -1) {
-        res
-          .status(404)
-          .json({ message: "No users with current id or empty db" });
-      } else {
-        users.splice(userIndex, 1);
-
-        await writeAllToDB(users);
-
-        res.sendStatus(204);
-      }
+      res.sendStatus(204);
     } catch (err) {
       next(err);
     }
